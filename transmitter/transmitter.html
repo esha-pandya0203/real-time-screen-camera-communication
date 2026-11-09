@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BFSK Transmitter</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+
+    #background {
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0; /* stretches to all four edges */ 
+      background: black;
+      opacity: 0; /* initially invisible */
+      pointer-events: none; /* prevents overlay from blocking mouse clicks */
+    }
+
+    #controls {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 10; /* appears above the overlay */ 
+      padding: 15px;
+      background: #cad7dd;
+      color: black;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: flex-start;
+      font-family: sans-serif;
+      border: 1px solid  black;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+
+    label {
+      font-size: 11px;
+      font-weight: 600; 
+      letter-spacing: 1px; 
+      text-transform: uppercase;
+    }
+
+    #status {
+      font-size: 11px; 
+      letter-spacing: 1px; 
+      margin: 0;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: black; 
+    }
+
+    .custom-select-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
+    #alpha {
+      font-size: 12px;
+      font-weight: 200;
+      letter-spacing: 1px;
+      padding: 13px 40px 13px 20px; 
+      outline: 0;
+      border: 1px solid black;
+      cursor: pointer;
+      position: relative;
+      background-color: #ffffff;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      width: 100%;
+      box-sizing: border-box;
+      
+      /* reset default native styles */
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      border-radius: 0;
+    }
+
+    #duration {
+      font-size: 12px;
+      font-weight: 200;
+      letter-spacing: 1px;
+      padding: 13px 40px 13px 20px; 
+      outline: 0;
+      border: 1px solid black;
+      cursor: pointer;
+      position: relative;
+      background-color: #ffffff;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      width: 100%;
+      box-sizing: border-box;
+      
+      /* reset default native styles */
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      border-radius: 0;
+    }
+
+    .custom-select-wrapper:after {
+      content: "";
+      background-color: #edd642;
+      width: 100%;
+      z-index: -1;
+      position: absolute;
+      height: 100%;
+      top: 7px;
+      left: 7px;
+      transition: 0.2s;
+      pointer-events: none;
+      border: 1px solid black;
+      box-sizing: border-box;
+    }
+
+    .custom-select-wrapper:hover:after {
+      top: 0px;
+      left: 0px;
+    }
+
+    .custom-select-wrapper::before {
+      content: "▼";
+      font-size: 9px;
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    button {
+      font-size: 12px;
+      font-weight: 200;
+      letter-spacing: 1px;
+      padding: 13px 20px 13px;
+      outline: 0;
+      border: 1px solid black;
+      cursor: pointer;
+      position: relative;
+      background-color: rgba(0, 0, 0, 0);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    button:after {
+      content: "";
+      background-color: #edd642;
+      width: 100%;
+      z-index: -1;
+      position: absolute;
+      height: 100%;
+      top: 7px;
+      left: 7px;
+      transition: 0.2s;
+    }
+
+    button:hover:after {
+      top: 0px;
+      left: 0px;
+    }
+  </style>
+</head>
+<body>
+
+<img id="background" src="background.jpg">
+<div id="overlay"></div> <!-- alpha overlap -->
+
+<div id="controls">
+  <div class="control-group">
+    <label>Delta Alpha:</label>
+    <div class="custom-select-wrapper">
+      <select id="alpha">
+        <option value="0.1">0.1</option>
+        <option value="0.5">0.5</option>
+      </select>
+    </div>
+    <!-- <label>Symbol Duration:</label>
+    <div class="custom-select-wrapper">
+      <select id="duration">
+        <option value="1000">1000 ms (1 bit/s)</option>
+        <option value="500">500 ms (2 bits/s)</option>
+      </select>
+    </div> -->
+  </div>
+
+  <button onclick="startTransmission()">
+    Transmit
+  </button>
+
+  <p id="status">Ready</p>
+</div>
+
+<script>
+const bits = "01011010"; // binary message 
+
+// BFSK frequencies 
+const f0 = 2;
+const f1 = 4;
+const symbolDuration = 1000; // milliseconds
+
+let transmitting = false;
+
+function startTransmission() {
+  if (transmitting) return;
+
+  transmitting = true;
+
+  const deltaAlpha = Number(document.getElementById("alpha").value);
+
+  const overlay = document.getElementById("overlay");
+  const status = document.getElementById("status");
+
+  const startTime = performance.now();
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const bitIndex = Math.floor(elapsed / symbolDuration);
+
+    if (bitIndex >= bits.length) {
+      overlay.style.opacity = 0;
+      status.textContent = "Transmission complete";
+      transmitting = false;
+      return;
+    }
+
+    const bit = bits[bitIndex];
+    const frequency = bit === "0" ? f0 : f1;
+
+    const symbolTime = (elapsed % symbolDuration) / 1000;
+
+    // square-wave BFSK: alpha toggles between 0 and deltaAlpha at the selected frequency.
+    const phase = (symbolTime * frequency) % 1;
+    const alpha = phase < 0.5 ? deltaAlpha : 0;
+
+    overlay.style.opacity = alpha;
+
+    status.textContent =
+      "Transmitting bit " + bit +
+      " (" + (bitIndex + 1) + "/" + bits.length + ")";
+
+    requestAnimationFrame(animate);
+  }
+
+  requestAnimationFrame(animate);
+}
+</script>
+
+</body>
+</html>
